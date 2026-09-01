@@ -6,6 +6,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/cjdenio/crossword/puz"
 )
@@ -100,24 +101,22 @@ func main() {
 
 	fmt.Printf("TITLE: %s\n", puzzle.Title)
 	fmt.Printf("AUTHOR: %s\n", puzzle.Author)
-
-	fmt.Println(RenderPuzzle(puzzle.State, puzzle.Width, puzzle.Height, puzzle.Clues[0].Cells, 1))
-
-	// j, _ := json.Marshal(puzzle)
-	// fmt.Println(string(j))
-	// for _, clue := range puzzle.Clues {
-	// 	if clue.Direction == puz.DirectionAcross {
-	// 		fmt.Printf(". %d-across: %s: %s\n", clue.Number, clue.Clue, clue.Solution)
-	// 	} else {
-	// 		fmt.Printf(". %d-down: %s: %s\n", clue.Number, clue.Clue, clue.Solution)
-	// 	}
-	// }
-
+	fmt.Println(RenderPuzzle(puzzle.Solution, puzzle.Width, puzzle.Height, puzzle.Clues[0].Cells, 1))
 	fmt.Printf("%s\n", puzzle.Copyright)
-	// for {
-	// 	n, _ := os.Stdin.Read(make([]byte, 1))
-	// 	if n > 0 {
-	// 		return
-	// 	}
-	// }
+
+	selectedCell := 1
+
+	for {
+		time.Sleep(500 * time.Millisecond)
+
+		fmt.Printf("\x1b[%dA", puzzle.Height+6)
+		fmt.Print("\x1b[J")
+
+		fmt.Printf("TITLE: %s\n", puzzle.Title)
+		fmt.Printf("AUTHOR: %s\n", puzzle.Author)
+		fmt.Println(RenderPuzzle(puzzle.Solution, puzzle.Width, puzzle.Height, puzzle.Clues[selectedCell].Cells, 1))
+		fmt.Printf("%s\n", puzzle.Copyright)
+
+		selectedCell++
+	}
 }

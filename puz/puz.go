@@ -7,6 +7,8 @@ import (
 	"errors"
 	"math"
 	"strings"
+
+	"golang.org/x/text/encoding/charmap"
 )
 
 type Direction int
@@ -65,6 +67,20 @@ func startOfAcrossClue(puzzle string, width, index int) bool {
 	return false
 }
 
+func readText(b *bufio.Reader) (string, error) {
+	text, err := b.ReadString(0x00)
+	if err != nil {
+		return "", err
+	}
+
+	decoded, err := charmap.ISO8859_1.NewDecoder().String(text[:len(text)-1])
+	if err != nil {
+		return "", err
+	}
+
+	return decoded, nil
+}
+
 func ParsePuz(file []byte) (*Puzzle, error) {
 	// read magic bytes
 	magic := string(file[2:14])
@@ -92,32 +108,32 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 	// read text
 	buf := bufio.NewReader(bytes.NewReader(file[stateEnd:]))
 
-	title, err := buf.ReadString(0x00)
+	title, err := readText(buf)
 	if err != nil {
 		return nil, err
 	}
-	puzzle.Title = title[:len(title)-1]
+	puzzle.Title = title
 
-	author, err := buf.ReadString(0x00)
+	author, err := readText(buf)
 	if err != nil {
 		return nil, err
 	}
-	puzzle.Author = author[:len(author)-1]
+	puzzle.Author = author
 
-	copyright, err := buf.ReadString(0x00)
+	copyright, err := readText(buf)
 	if err != nil {
 		return nil, err
 	}
-	puzzle.Copyright = copyright[:len(copyright)-1]
+	puzzle.Copyright = copyright
 
 	// read clues
 	clues := make([]string, 0, puzzle.ClueCount)
 	for range puzzle.ClueCount {
-		clue, err := buf.ReadString(0x00)
+		clue, err := readText(buf)
 		if err != nil {
 			return nil, err
 		}
-		clues = append(clues, clue[:len(clue)-1])
+		clues = append(clues, clue)
 	}
 
 	// assign clue numbers
