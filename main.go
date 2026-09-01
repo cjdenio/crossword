@@ -1,16 +1,29 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/cjdenio/crossword/puz"
 )
 
-func RenderPuzzle(puzzle string, width, height int) string {
+const (
+	AnsiInvert          string = "\x1b[7m"
+	AnsiReset           string = "\x1b[m"
+	AnsiWhiteBackground string = "\x1b[100m"
+)
+
+func AnsiInverted(s string) string {
+	return AnsiInvert + s + AnsiReset
+}
+func AnsiWhiteBackgrounded(s string) string {
+	return AnsiWhiteBackground + s + AnsiReset
+}
+
+func RenderPuzzle(puzzle string, width, height int, selectedClueCells []int, selectedCell int) string {
 	b := strings.Builder{}
 
 	b.WriteRune('┌')
@@ -24,21 +37,35 @@ func RenderPuzzle(puzzle string, width, height int) string {
 			b.WriteString("│ ")
 		}
 
+		cell := ""
 		switch char {
 		case '.':
-			b.WriteRune(0x2588)
+			cell = string(rune(0x2588))
 		case '-':
-			b.WriteRune('_')
+			cell = "_"
 		default:
-			b.WriteRune(char)
+			cell = string(char)
 		}
+
+		if selectedCell == index {
+			cell = AnsiInverted(cell)
+		} else if slices.Contains(selectedClueCells, index) {
+			cell = AnsiWhiteBackgrounded(cell)
+		}
+
+		b.WriteString(cell)
 
 		if (index+1)%width == 0 {
 			b.WriteString(" │\n")
 		} else if char == '.' && puzzle[index+1] == '.' {
 			b.WriteRune(0x2588)
 		} else {
-			b.WriteRune(' ')
+			// inefficient
+			if slices.Contains(selectedClueCells, index) && slices.Contains(selectedClueCells, index+1) {
+				b.WriteString(AnsiWhiteBackgrounded(" "))
+			} else {
+				b.WriteRune(' ')
+			}
 		}
 	}
 
@@ -74,10 +101,10 @@ func main() {
 	fmt.Printf("TITLE: %s\n", puzzle.Title)
 	fmt.Printf("AUTHOR: %s\n", puzzle.Author)
 
-	fmt.Println(RenderPuzzle(puzzle.State, puzzle.Width, puzzle.Height))
+	fmt.Println(RenderPuzzle(puzzle.State, puzzle.Width, puzzle.Height, puzzle.Clues[0].Cells, 1))
 
-	j, _ := json.Marshal(puzzle)
-	fmt.Println(string(j))
+	// j, _ := json.Marshal(puzzle)
+	// fmt.Println(string(j))
 	// for _, clue := range puzzle.Clues {
 	// 	if clue.Direction == puz.DirectionAcross {
 	// 		fmt.Printf(". %d-across: %s: %s\n", clue.Number, clue.Clue, clue.Solution)
