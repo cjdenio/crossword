@@ -1,11 +1,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/cjdenio/crossword/puz"
 	"golang.org/x/term"
@@ -22,6 +24,9 @@ func AnsiInverted(s string) string {
 }
 func AnsiWhiteBackgrounded(s string) string {
 	return AnsiWhiteBackground + s + AnsiReset
+}
+func AnsiDimmed(s string) string {
+	return fmt.Sprintf("\x1b[2m%s\x1b[0m", s)
 }
 
 func RenderPuzzle(puzzle []rune, width, height int, selectedClueCells []int, selectedCell int) string {
@@ -43,7 +48,7 @@ func RenderPuzzle(puzzle []rune, width, height int, selectedClueCells []int, sel
 		case '.':
 			cell = string(rune(0x2588))
 		case '-':
-			cell = "_"
+			cell = AnsiDimmed("_")
 		default:
 			cell = string(char)
 		}
@@ -80,11 +85,91 @@ func RenderPuzzle(puzzle []rune, width, height int, selectedClueCells []int, sel
 }
 
 type State struct {
-	Puzzle       *puz.Puzzle
-	PuzzleState  []rune
-	SelectedCell int
-	SelectedClue *puz.Clue
-	Goodbye      bool
+	Puzzle          *puz.Puzzle
+	PuzzleState     []rune
+	SelectedCell    int
+	SelectedClue    *puz.Clue
+	Goodbye         bool
+	LastKeySequence string
+	DebugMode       bool
+}
+
+func (state *State) MoveCursor(direction int) {
+	switch direction {
+	case 0: // up
+		if state.SelectedCell < state.Puzzle.Width { // if already in the top row, do nothing
+			return
+		}
+
+		for i := state.SelectedCell - state.Puzzle.Width; i >= 0; i -= state.Puzzle.Width {
+			if state.PuzzleState[i] != '.' {
+				state.SelectedCell = i
+				return
+			}
+		}
+	case 1: // right
+		if (state.SelectedCell+1)%state.Puzzle.Width == 0 { // if already in the right column, do nothing
+			return
+		}
+
+		for i := state.SelectedCell + 1; i%state.Puzzle.Width != 0; i += 1 {
+			if state.PuzzleState[i] != '.' {
+				state.SelectedCell = i
+				return
+			}
+		}
+	case 2: // down
+		if (state.SelectedCell) >= (state.Puzzle.Width*state.Puzzle.Height)-state.Puzzle.Width { // if already in the bottom row, do nothing
+			return
+		}
+
+		for i := state.SelectedCell + state.Puzzle.Width; i < (state.Puzzle.Width * state.Puzzle.Height); i += state.Puzzle.Width {
+			if state.PuzzleState[i] != '.' {
+				state.SelectedCell = i
+				return
+			}
+		}
+	case 3: // left
+		if state.SelectedCell%state.Puzzle.Width == 0 { // if already in the left column, do nothing
+			return
+		}
+
+		for i := state.SelectedCell - 1; (i+1)%state.Puzzle.Width != 0; i -= 1 {
+			if state.PuzzleState[i] != '.' {
+				state.SelectedCell = i
+				return
+			}
+		}
+	}
+}
+
+func (state *State) NextWord() {
+	if state.SelectedClue == nil {
+		return
+	}
+
+	foundSelectedClue := false
+
+	for _, clue := range state.Puzzle.Clues {
+		if !foundSelectedClue && clue == state.SelectedClue {
+			foundSelectedClue = true
+			continue
+		}
+
+		if foundSelectedClue && clue.Direction == state.SelectedClue.Direction {
+			state.SelectedClue = clue
+			state.SelectedCell = clue.Cells[0]
+			return
+		}
+	}
+
+	for _, clue := range state.Puzzle.Clues {
+		if clue.Direction != state.SelectedClue.Direction {
+			state.SelectedClue = clue
+			state.SelectedCell = clue.Cells[0]
+			return
+		}
+	}
 }
 
 func RenderUI(state *State) int {
@@ -102,11 +187,20 @@ func RenderUI(state *State) int {
 	fmt.Print(RenderPuzzle(state.PuzzleState, state.Puzzle.Width, state.Puzzle.Height, selectedClueCells, state.SelectedCell) + "\r\n")
 	uiHeight += state.Puzzle.Height + 3
 	if state.SelectedClue != nil {
-		fmt.Printf("%d: %s\r\n\r\n", state.SelectedClue.Number, state.SelectedClue.Clue)
+		if state.SelectedClue.Direction == puz.DirectionAcross {
+			fmt.Printf("%d-across: %s\r\n\r\n", state.SelectedClue.Number, state.SelectedClue.Clue)
+		} else {
+			fmt.Printf("%d-down: %s\r\n\r\n", state.SelectedClue.Number, state.SelectedClue.Clue)
+		}
 		uiHeight += 2
 	}
 	fmt.Printf("%s\r\n", state.Puzzle.Copyright)
 	uiHeight += 1
+
+	if state.LastKeySequence != "" && state.DebugMode {
+		fmt.Printf("\r\n%s\r\n", AnsiDimmed(state.LastKeySequence))
+		uiHeight += 2
+	}
 
 	if state.Goodbye {
 		fmt.Print("\r\nsee ya\r\n")
@@ -129,7 +223,10 @@ func main() {
 
 	defer term.Restore(int(os.Stdin.Fd()), termState)
 
-	filename := os.Args[1]
+	debugMode := flag.Bool("debug", false, "")
+	flag.Parse()
+
+	filename := flag.Arg(0)
 	file, err := os.ReadFile(filename)
 	if err != nil {
 		log.Fatal(err)
@@ -146,6 +243,9 @@ func main() {
 		SelectedClue: puzzle.Clues[0],
 		SelectedCell: puzzle.Clues[0].Cells[0],
 	}
+	if debugMode != nil {
+		state.DebugMode = *debugMode
+	}
 
 	uiHeight := RenderUI(&state)
 
@@ -155,6 +255,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		state.LastKeySequence = fmt.Sprintf("%v", buffer)
 
 		if buffer[0] == 3 {
 			state.SelectedClue = nil
@@ -166,6 +268,48 @@ func main() {
 			return
 		}
 
+		if buffer[0] == ' ' {
+			switch state.SelectedClue.Direction {
+			case puz.DirectionAcross:
+				if state.Puzzle.Cells[state.SelectedCell][1] != nil {
+					state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
+				}
+			case puz.DirectionDown:
+				if state.Puzzle.Cells[state.SelectedCell][0] != nil {
+					state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+				}
+			}
+		}
+
+		if buffer[0] >= 0x61 && buffer[0] <= 0x7a {
+			state.PuzzleState[state.SelectedCell] = unicode.ToUpper(rune(buffer[0]))
+			// jump to next unfilled cell in clue
+			i := slices.Index(state.SelectedClue.Cells, state.SelectedCell)
+			for x := i + 1; x < len(state.SelectedClue.Cells); x++ {
+				if state.PuzzleState[state.SelectedClue.Cells[x]] == '-' {
+					state.SelectedCell = state.SelectedClue.Cells[x]
+					break
+				}
+			}
+		}
+
+		if buffer[0] == 0x7f {
+			// is there a filled cell underneath the cursor?
+			if state.PuzzleState[state.SelectedCell] != '-' {
+				state.PuzzleState[state.SelectedCell] = '-'
+			} else {
+				i := slices.Index(state.SelectedClue.Cells, state.SelectedCell)
+				if i > 0 {
+					state.PuzzleState[state.SelectedClue.Cells[i-1]] = '-' // clear the previous cell
+					state.SelectedCell = state.SelectedClue.Cells[i-1]
+				}
+			}
+		}
+
+		if buffer[0] == 0x0d {
+			state.NextWord()
+		}
+
 		if (buffer[2] == 68 || buffer[2] == 67) && state.SelectedClue != nil && state.SelectedClue.Direction == puz.DirectionDown {
 			state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
 		} else if (buffer[2] == 65 || buffer[2] == 66) && state.SelectedClue != nil && state.SelectedClue.Direction == puz.DirectionAcross {
@@ -173,14 +317,13 @@ func main() {
 		} else {
 			switch buffer[2] {
 			case 68: // left
-				state.SelectedCell--
+				state.MoveCursor(3)
 			case 67: // right
-				state.PuzzleState[state.SelectedCell] = 'a'
-				state.SelectedCell++
+				state.MoveCursor(1)
 			case 65: // up
-				state.SelectedCell -= puzzle.Width
+				state.MoveCursor(0)
 			case 66: // down
-				state.SelectedCell += puzzle.Width
+				state.MoveCursor(2)
 			}
 
 			switch state.SelectedClue.Direction {
