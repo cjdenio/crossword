@@ -38,11 +38,16 @@ type Puzzle struct {
 	Solution string
 	State    string
 
-	Clues []Clue
+	Clues []*Clue
+
+	Cells [][2]*Clue
 }
 
-func startOfDownClue(puzzle string, width, index int) bool {
+func startOfDownClue(puzzle string, width, height, index int) bool {
 	if puzzle[index] == '.' {
+		return false
+	}
+	if int(math.Floor(float64(index/width)))+1 == height || puzzle[index+width] == '.' {
 		return false
 	}
 	if index < width {
@@ -56,6 +61,9 @@ func startOfDownClue(puzzle string, width, index int) bool {
 
 func startOfAcrossClue(puzzle string, width, index int) bool {
 	if puzzle[index] == '.' {
+		return false
+	}
+	if (index+1)%width == 0 || puzzle[index+1] == '.' {
 		return false
 	}
 	if index%width == 0 {
@@ -137,7 +145,8 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 	}
 
 	// assign clue numbers
-	puzzle.Clues = make([]Clue, 0, puzzle.ClueCount)
+	puzzle.Clues = make([]*Clue, 0, puzzle.ClueCount)
+	puzzle.Cells = make([][2]*Clue, len(puzzle.Solution))
 
 	clueNumber := 1
 	clueIndex := 0
@@ -146,23 +155,27 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 		cellGetsNumber := false
 		if startOfAcrossClue(puzzle.Solution, puzzle.Width, i) {
 			cellGetsNumber = true
-			puzzle.Clues = append(puzzle.Clues, Clue{
+			clue := Clue{
 				Cells:     []int{i},
 				Direction: DirectionAcross,
 				Number:    clueNumber,
 				Clue:      clues[clueIndex],
-			})
+			}
+			puzzle.Clues = append(puzzle.Clues, &clue)
+			puzzle.Cells[i][0] = &clue
 			clueIndex++
 		}
 
-		if startOfDownClue(puzzle.Solution, puzzle.Width, i) {
+		if startOfDownClue(puzzle.Solution, puzzle.Width, puzzle.Height, i) {
 			cellGetsNumber = true
-			puzzle.Clues = append(puzzle.Clues, Clue{
+			clue := Clue{
 				Cells:     []int{i},
 				Direction: DirectionDown,
 				Number:    clueNumber,
 				Clue:      clues[clueIndex],
-			})
+			}
+			puzzle.Clues = append(puzzle.Clues, &clue)
+			puzzle.Cells[i][1] = &clue
 			clueIndex++
 		}
 
@@ -181,6 +194,12 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 
 			if currentCell != clue.Cells[0] {
 				clue.Cells = append(clue.Cells, currentCell)
+				switch clue.Direction {
+				case DirectionAcross:
+					puzzle.Cells[currentCell][0] = clue
+				case DirectionDown:
+					puzzle.Cells[currentCell][1] = clue
+				}
 			}
 
 			if clue.Direction == DirectionAcross {

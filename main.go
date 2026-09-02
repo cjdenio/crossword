@@ -6,9 +6,9 @@ import (
 	"os"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/cjdenio/crossword/puz"
+	"golang.org/x/term"
 )
 
 const (
@@ -31,7 +31,7 @@ func RenderPuzzle(puzzle string, width, height int, selectedClueCells []int, sel
 	for range (width * 2) + 1 {
 		b.WriteRune('─')
 	}
-	b.WriteString("┐\n")
+	b.WriteString("┐\r\n")
 
 	for index, char := range puzzle {
 		if index%width == 0 {
@@ -57,7 +57,7 @@ func RenderPuzzle(puzzle string, width, height int, selectedClueCells []int, sel
 		b.WriteString(cell)
 
 		if (index+1)%width == 0 {
-			b.WriteString(" │\n")
+			b.WriteString(" │\r\n")
 		} else if char == '.' && puzzle[index+1] == '.' {
 			b.WriteRune(0x2588)
 		} else {
@@ -74,19 +74,59 @@ func RenderPuzzle(puzzle string, width, height int, selectedClueCells []int, sel
 	for range (width * 2) + 1 {
 		b.WriteRune('─')
 	}
-	b.WriteString("┘\n")
+	b.WriteString("┘\r\n")
 
 	return b.String()
 }
 
-func main() {
-	// fmt.Print("\x1b[?1049h")
-	// fmt.Print("\x1b[?25l")
+type State struct {
+	Puzzle       *puz.Puzzle
+	SelectedCell int
+	SelectedClue *puz.Clue
+	Goodbye      bool
+}
 
-	// defer func() {
-	// 	fmt.Print("\x1b[?1049l")
-	// 	fmt.Print("\x1b[?25h")
-	// }()
+func RenderUI(state *State) int {
+	selectedClueCells := []int{}
+	if state.SelectedClue != nil {
+		selectedClueCells = state.SelectedClue.Cells
+	}
+
+	uiHeight := 0
+
+	fmt.Printf("\r\nTITLE: %s\r\n", state.Puzzle.Title)
+	uiHeight += 2
+	fmt.Printf("AUTHOR: %s\r\n", state.Puzzle.Author)
+	uiHeight += 1
+	fmt.Print(RenderPuzzle(state.Puzzle.State, state.Puzzle.Width, state.Puzzle.Height, selectedClueCells, state.SelectedCell) + "\r\n")
+	uiHeight += state.Puzzle.Height + 3
+	if state.SelectedClue != nil {
+		fmt.Printf("%d: %s\r\n\r\n", state.SelectedClue.Number, state.SelectedClue.Clue)
+		uiHeight += 2
+	}
+	fmt.Printf("%s\r\n", state.Puzzle.Copyright)
+	uiHeight += 1
+
+	if state.Goodbye {
+		fmt.Print("\r\nsee ya\r\n")
+		uiHeight += 2
+	}
+
+	return uiHeight
+}
+
+func main() {
+	fmt.Print("\x1b[?25l")
+
+	defer func() {
+		fmt.Print("\x1b[?25h")
+	}()
+	termState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer term.Restore(int(os.Stdin.Fd()), termState)
 
 	filename := os.Args[1]
 	file, err := os.ReadFile(filename)
@@ -99,24 +139,47 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("TITLE: %s\n", puzzle.Title)
-	fmt.Printf("AUTHOR: %s\n", puzzle.Author)
-	fmt.Println(RenderPuzzle(puzzle.Solution, puzzle.Width, puzzle.Height, puzzle.Clues[0].Cells, 1))
-	fmt.Printf("%s\n", puzzle.Copyright)
+	state := State{
+		Puzzle:       puzzle,
+		SelectedClue: puzzle.Clues[0],
+		SelectedCell: puzzle.Clues[0].Cells[0],
+	}
 
-	selectedCell := 1
+	uiHeight := RenderUI(&state)
 
 	for {
-		time.Sleep(500 * time.Millisecond)
+		buffer := make([]byte, 3)
+		_, err = os.Stdin.Read(buffer)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		fmt.Printf("\x1b[%dA", puzzle.Height+6)
+		if buffer[0] == 3 {
+			state.SelectedClue = nil
+			state.SelectedCell = -1
+			state.Goodbye = true
+			fmt.Printf("\r\x1b[%dA", uiHeight)
+			fmt.Print("\x1b[J")
+			RenderUI(&state)
+			return
+		}
+
+		switch buffer[2] {
+		case 68:
+			state.SelectedCell--
+		case 67:
+			state.SelectedCell++
+		case 65:
+			state.SelectedCell -= puzzle.Width
+		case 66:
+			state.SelectedCell += puzzle.Width
+		}
+
+		state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+
+		fmt.Printf("\r\x1b[%dA", uiHeight)
 		fmt.Print("\x1b[J")
 
-		fmt.Printf("TITLE: %s\n", puzzle.Title)
-		fmt.Printf("AUTHOR: %s\n", puzzle.Author)
-		fmt.Println(RenderPuzzle(puzzle.Solution, puzzle.Width, puzzle.Height, puzzle.Clues[selectedCell].Cells, 1))
-		fmt.Printf("%s\n", puzzle.Copyright)
-
-		selectedCell++
+		uiHeight = RenderUI(&state)
 	}
 }
