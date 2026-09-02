@@ -24,7 +24,7 @@ func AnsiWhiteBackgrounded(s string) string {
 	return AnsiWhiteBackground + s + AnsiReset
 }
 
-func RenderPuzzle(puzzle string, width, height int, selectedClueCells []int, selectedCell int) string {
+func RenderPuzzle(puzzle []rune, width, height int, selectedClueCells []int, selectedCell int) string {
 	b := strings.Builder{}
 
 	b.WriteRune('┌')
@@ -81,6 +81,7 @@ func RenderPuzzle(puzzle string, width, height int, selectedClueCells []int, sel
 
 type State struct {
 	Puzzle       *puz.Puzzle
+	PuzzleState  []rune
 	SelectedCell int
 	SelectedClue *puz.Clue
 	Goodbye      bool
@@ -98,7 +99,7 @@ func RenderUI(state *State) int {
 	uiHeight += 2
 	fmt.Printf("AUTHOR: %s\r\n", state.Puzzle.Author)
 	uiHeight += 1
-	fmt.Print(RenderPuzzle(state.Puzzle.State, state.Puzzle.Width, state.Puzzle.Height, selectedClueCells, state.SelectedCell) + "\r\n")
+	fmt.Print(RenderPuzzle(state.PuzzleState, state.Puzzle.Width, state.Puzzle.Height, selectedClueCells, state.SelectedCell) + "\r\n")
 	uiHeight += state.Puzzle.Height + 3
 	if state.SelectedClue != nil {
 		fmt.Printf("%d: %s\r\n\r\n", state.SelectedClue.Number, state.SelectedClue.Clue)
@@ -141,6 +142,7 @@ func main() {
 
 	state := State{
 		Puzzle:       puzzle,
+		PuzzleState:  []rune(puzzle.State),
 		SelectedClue: puzzle.Clues[0],
 		SelectedCell: puzzle.Clues[0].Cells[0],
 	}
@@ -164,18 +166,30 @@ func main() {
 			return
 		}
 
-		switch buffer[2] {
-		case 68:
-			state.SelectedCell--
-		case 67:
-			state.SelectedCell++
-		case 65:
-			state.SelectedCell -= puzzle.Width
-		case 66:
-			state.SelectedCell += puzzle.Width
-		}
+		if (buffer[2] == 68 || buffer[2] == 67) && state.SelectedClue != nil && state.SelectedClue.Direction == puz.DirectionDown {
+			state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+		} else if (buffer[2] == 65 || buffer[2] == 66) && state.SelectedClue != nil && state.SelectedClue.Direction == puz.DirectionAcross {
+			state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
+		} else {
+			switch buffer[2] {
+			case 68: // left
+				state.SelectedCell--
+			case 67: // right
+				state.PuzzleState[state.SelectedCell] = 'a'
+				state.SelectedCell++
+			case 65: // up
+				state.SelectedCell -= puzzle.Width
+			case 66: // down
+				state.SelectedCell += puzzle.Width
+			}
 
-		state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+			switch state.SelectedClue.Direction {
+			case puz.DirectionAcross:
+				state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+			case puz.DirectionDown:
+				state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
+			}
+		}
 
 		fmt.Printf("\r\x1b[%dA", uiHeight)
 		fmt.Print("\x1b[J")
