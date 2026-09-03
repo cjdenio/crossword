@@ -143,6 +143,15 @@ func (state *State) MoveCursor(direction int) {
 	}
 }
 
+func (state *State) FirstUnfilledCellForClue(clue *puz.Clue) int {
+	for _, cell := range clue.Cells {
+		if state.PuzzleState[cell] == '-' {
+			return cell
+		}
+	}
+	return clue.Cells[0]
+}
+
 func (state *State) NextWord() {
 	if state.SelectedClue == nil {
 		return
@@ -158,7 +167,7 @@ func (state *State) NextWord() {
 
 		if foundSelectedClue && clue.Direction == state.SelectedClue.Direction {
 			state.SelectedClue = clue
-			state.SelectedCell = clue.Cells[0]
+			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
 			return
 		}
 	}
@@ -166,7 +175,7 @@ func (state *State) NextWord() {
 	for _, clue := range state.Puzzle.Clues {
 		if clue.Direction != state.SelectedClue.Direction {
 			state.SelectedClue = clue
-			state.SelectedCell = clue.Cells[0]
+			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
 			return
 		}
 	}
@@ -222,6 +231,12 @@ func main() {
 	}
 
 	defer term.Restore(int(os.Stdin.Fd()), termState)
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Print("!!! PROGRAM CRASHED !!! Error:\r\n", r, "\r\n")
+		}
+	}()
 
 	debugMode := flag.Bool("debug", false, "")
 	flag.Parse()
