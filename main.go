@@ -282,13 +282,23 @@ func main() {
 		}
 
 		if buffer[0] >= 0x61 && buffer[0] <= 0x7a {
+			cellWasFilled := state.PuzzleState[state.SelectedCell] != '-'
 			state.PuzzleState[state.SelectedCell] = unicode.ToUpper(rune(buffer[0]))
-			// jump to next unfilled cell in clue
+
 			i := slices.Index(state.SelectedClue.Cells, state.SelectedCell)
-			for x := i + 1; x < len(state.SelectedClue.Cells); x++ {
-				if state.PuzzleState[state.SelectedClue.Cells[x]] == '-' {
-					state.SelectedCell = state.SelectedClue.Cells[x]
-					break
+
+			if !cellWasFilled {
+				// jump to next unfilled cell in clue
+				for x := i + 1; x < len(state.SelectedClue.Cells); x++ {
+					if state.PuzzleState[state.SelectedClue.Cells[x]] == '-' {
+						state.SelectedCell = state.SelectedClue.Cells[x]
+						break
+					}
+				}
+			} else {
+				// jump to next cell
+				if i < len(state.SelectedClue.Cells)-1 {
+					state.SelectedCell = state.SelectedClue.Cells[i+1]
 				}
 			}
 		}
