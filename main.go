@@ -29,6 +29,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+	fileInfo, err := os.Stat(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	puzzle, err := puz.ParsePuz(file)
 	if err != nil {
 		log.Fatal(err)
@@ -54,6 +59,15 @@ func main() {
 	}
 	if debugMode != nil {
 		state.DebugMode = *debugMode
+	}
+
+	// try to load a saveFile
+	saveFile, err := os.ReadFile(filename + ".save")
+	if err == nil {
+		err = state.LoadSaveFile(saveFile)
+		if state.DebugMode && err != nil {
+			state.LastKeySequence = fmt.Sprintf("failed to read savefile: %s", err)
+		}
 	}
 
 	uiHeight := state.RenderUI()
@@ -82,6 +96,13 @@ func main() {
 		state.LastKeySequence = fmt.Sprintf("%v", buffer)
 
 		if buffer[0] == 3 {
+			saveFile, err := state.CreateSaveFile()
+			if err == nil {
+				err = os.WriteFile(filename+".save", saveFile, fileInfo.Mode())
+				if err != nil && state.DebugMode {
+					state.LastKeySequence = fmt.Sprintf("failed to write savefile: %s", err)
+				}
+			}
 			state.SelectedClue = nil
 			state.SelectedCell = -1
 			state.Goodbye = true
@@ -149,8 +170,11 @@ func main() {
 			}
 		}
 
-		if buffer[0] == 0x0d {
+		if buffer[0] == '\r' {
 			state.NextWord()
+		}
+		if buffer[0] == '~' {
+			state.PreviousWord()
 		}
 
 		if string(buffer[0:2]) == "\x1b[" {

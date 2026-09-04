@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -68,6 +70,16 @@ func (state *State) MoveCursor(direction int) {
 	}
 }
 
+func (state *State) ClueFilled(clue *puz.Clue) bool {
+	for _, cell := range clue.Cells {
+		if state.PuzzleState[cell] == '-' {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (state *State) FirstUnfilledCellForClue(clue *puz.Clue) int {
 	for _, cell := range clue.Cells {
 		if state.PuzzleState[cell] == '-' {
@@ -90,7 +102,7 @@ func (state *State) NextWord() {
 			continue
 		}
 
-		if foundSelectedClue && clue.Direction == state.SelectedClue.Direction {
+		if foundSelectedClue && clue.Direction == state.SelectedClue.Direction && !state.ClueFilled(clue) {
 			state.SelectedClue = clue
 			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
 			return
@@ -98,7 +110,62 @@ func (state *State) NextWord() {
 	}
 
 	for _, clue := range state.Puzzle.Clues {
-		if clue.Direction != state.SelectedClue.Direction {
+		if clue.Direction != state.SelectedClue.Direction && !state.ClueFilled(clue) {
+			state.SelectedClue = clue
+			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
+			return
+		}
+	}
+
+	for _, clue := range state.Puzzle.Clues {
+		if clue == state.SelectedClue {
+			return
+		} else if clue.Direction == state.SelectedClue.Direction && !state.ClueFilled(clue) {
+			state.SelectedClue = clue
+			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
+			return
+		}
+	}
+}
+
+func (state *State) PreviousWord() {
+	if state.SelectedClue == nil {
+		return
+	}
+
+	foundSelectedClue := false
+
+	for i := len(state.Puzzle.Clues) - 1; i >= 0; i-- {
+		clue := state.Puzzle.Clues[i]
+
+		if !foundSelectedClue && clue == state.SelectedClue {
+			foundSelectedClue = true
+			continue
+		}
+
+		if foundSelectedClue && clue.Direction == state.SelectedClue.Direction && !state.ClueFilled(clue) {
+			state.SelectedClue = clue
+			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
+			return
+		}
+	}
+
+	for i := len(state.Puzzle.Clues) - 1; i >= 0; i-- {
+		clue := state.Puzzle.Clues[i]
+
+		if clue.Direction != state.SelectedClue.Direction && !state.ClueFilled(clue) {
+			state.SelectedClue = clue
+			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
+			return
+		}
+	}
+
+	for i := len(state.Puzzle.Clues) - 1; i >= 0; i-- {
+		clue := state.Puzzle.Clues[i]
+
+		if clue == state.SelectedClue {
+			return
+		} else if clue.Direction == state.SelectedClue.Direction && !state.ClueFilled(clue) {
 			state.SelectedClue = clue
 			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
 			return
@@ -241,4 +308,37 @@ func RenderPuzzle(puzzle []rune, width, height int, selectedClueCells []int, sel
 	b.WriteString("┘\r\n")
 
 	return b.String()
+}
+
+type SaveFile struct {
+	State string `json:"state"`
+}
+
+func (state *State) CreateSaveFile() ([]byte, error) {
+	return json.Marshal(SaveFile{
+		State: string(state.PuzzleState),
+	})
+}
+
+func (state *State) LoadSaveFile(f []byte) error {
+	var save SaveFile
+	err := json.Unmarshal(f, &save)
+	if err != nil {
+		return err
+	}
+
+	// verify the save file matches the shape of the puzzle
+	if len(save.State) != state.Puzzle.Width*state.Puzzle.Height {
+		return errors.New("save is invalid")
+	}
+
+	for i, cell := range state.Puzzle.Solution {
+		if (save.State[i] == '.' && cell != '.') || (save.State[i] != '.' && cell == '.') {
+			return errors.New("save is invalid")
+		}
+	}
+
+	state.PuzzleState = []rune(save.State)
+
+	return nil
 }
