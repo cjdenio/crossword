@@ -216,7 +216,7 @@ func (state *State) RenderUI() int {
 
 	switch state.SolveState {
 	case 1:
-		fmt.Print("\r\nThe puzzle was filled, but at least 1 letter is incorrect...\r\n")
+		fmt.Printf("\r\n%s\r\n", AnsiRed("The puzzle was filled, but at least 1 letter is incorrect..."))
 		uiHeight += 2
 	case 2:
 		fmt.Printf("\r\n%s\r\n", AnsiGreen("The puzzle was solved!"))
@@ -253,6 +253,9 @@ func AnsiDimmed(s string) string {
 }
 func AnsiGreen(s string) string {
 	return fmt.Sprintf("\x1b[32m%s\x1b[0m", s)
+}
+func AnsiRed(s string) string {
+	return fmt.Sprintf("\x1b[31m%s\x1b[0m", s)
 }
 
 func RenderPuzzle(puzzle []rune, width, height int, selectedClueCells []int, selectedCell int) string {
