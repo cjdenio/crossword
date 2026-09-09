@@ -349,6 +349,10 @@ func (state *State) LoadSaveFile(f []byte) error {
 }
 
 func (state *State) HandleInput(buffer []byte) (exited bool) {
+	if len(buffer) == 0 {
+		return false
+	}
+
 	state.LastKeySequence = fmt.Sprintf("%v", buffer)
 
 	if buffer[0] == 3 {
