@@ -396,6 +396,7 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 		if state.GridFilled() {
 			if state.CheckPuzzle() {
 				state.SolveState = 2
+				return true
 			} else {
 				state.SolveState = 1
 			}
@@ -417,7 +418,7 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 		}
 	}
 
-	if buffer[0] == '\r' {
+	if buffer[0] == '\r' || buffer[0] == '\t' {
 		state.NextWord()
 	}
 	if buffer[0] == '~' {
