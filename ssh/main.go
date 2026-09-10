@@ -56,7 +56,10 @@ func main() {
 		})
 
 		for {
-			scanner.Scan()
+			ok := scanner.Scan()
+			if !ok {
+				break
+			}
 			buffer := scanner.Bytes()
 
 			exited := state.HandleInput(buffer)
