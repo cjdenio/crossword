@@ -13,11 +13,19 @@ import (
 )
 
 func main() {
+	file, err := os.ReadFile(os.Args[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	port := ":2222"
+	if portEnv, ok := os.LookupEnv("PORT"); ok && portEnv != "" {
+		port = ":" + portEnv
+	}
+
 	ssh.Handle(func(s ssh.Session) {
-		file, err := os.ReadFile(os.Args[1])
-		if err != nil {
-			log.Fatal(err)
-		}
+		log.Printf("new connection from %s (username %s)\n", s.RemoteAddr().String(), s.User())
+
 		puzzle, err := puz.ParsePuz(file)
 		if err != nil {
 			log.Fatal(err)
@@ -69,7 +77,7 @@ func main() {
 				fmt.Fprintf(s, "\r\x1b[%dA", uiHeight)
 				fmt.Fprint(s, "\x1b[J")
 				state.RenderUI(s)
-				return
+				break
 			}
 
 			fmt.Fprintf(s, "\r\x1b[%dA", uiHeight)
@@ -77,6 +85,9 @@ func main() {
 
 			uiHeight = state.RenderUI(s)
 		}
+
+		log.Printf("%s disconnected\n", s.RemoteAddr().String())
 	})
-	log.Fatal(ssh.ListenAndServe(":1234", nil))
+	log.Printf("starting on port %s...\n", port)
+	log.Fatal(ssh.ListenAndServe(port, nil))
 }
