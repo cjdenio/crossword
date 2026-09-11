@@ -75,18 +75,22 @@ func startOfAcrossClue(puzzle string, width, index int) bool {
 	return false
 }
 
-func readText(b *bufio.Reader) (string, error) {
+func readText(b *bufio.Reader, version string) (string, error) {
 	text, err := b.ReadString(0x00)
 	if err != nil {
 		return "", err
 	}
 
-	decoded, err := charmap.ISO8859_1.NewDecoder().String(text[:len(text)-1])
-	if err != nil {
-		return "", err
-	}
+	if version == "1" {
+		decoded, err := charmap.ISO8859_1.NewDecoder().String(text[:len(text)-1])
+		if err != nil {
+			return "", err
+		}
 
-	return decoded, nil
+		return decoded, nil
+	} else {
+		return string(text[:len(text)-1]), nil
+	}
 }
 
 func ParsePuz(file []byte) (*Puzzle, error) {
@@ -99,6 +103,7 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 	puzzle := new(Puzzle)
 
 	// read header
+	version := string(file[0x18:0x1B])
 	puzzle.Width = int(file[0x2C])
 	puzzle.Height = int(file[0x2D])
 	puzzle.ClueCount = int(binary.LittleEndian.Uint16(file[0x2E:0x30]))
@@ -116,19 +121,19 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 	// read text
 	buf := bufio.NewReader(bytes.NewReader(file[stateEnd:]))
 
-	title, err := readText(buf)
+	title, err := readText(buf, string(version[0]))
 	if err != nil {
 		return nil, err
 	}
 	puzzle.Title = title
 
-	author, err := readText(buf)
+	author, err := readText(buf, string(version[0]))
 	if err != nil {
 		return nil, err
 	}
 	puzzle.Author = author
 
-	copyright, err := readText(buf)
+	copyright, err := readText(buf, string(version[0]))
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +142,7 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 	// read clues
 	clues := make([]string, 0, puzzle.ClueCount)
 	for range puzzle.ClueCount {
-		clue, err := readText(buf)
+		clue, err := readText(buf, string(version[0]))
 		if err != nil {
 			return nil, err
 		}
