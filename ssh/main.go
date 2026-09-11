@@ -66,7 +66,6 @@ func main() {
 			if exited {
 				state.SelectedClue = nil
 				state.SelectedCell = -1
-				state.Goodbye = true
 				fmt.Fprintf(s, "\r\x1b[%dA", uiHeight)
 				fmt.Fprint(s, "\x1b[J")
 				state.RenderUI(s)

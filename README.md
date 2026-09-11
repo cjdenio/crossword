@@ -6,5 +6,4 @@ todo
 - reveal grid/word
 - .puz checksums
 - fix shift+enter / short+tab in other terminals
-- after entering letter, jump to next unfilled cell (even if it's backwards)
 - clear grid

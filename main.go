@@ -103,7 +103,6 @@ func main() {
 			}
 			state.SelectedClue = nil
 			state.SelectedCell = -1
-			state.Goodbye = true
 			fmt.Printf("\r\x1b[%dA", uiHeight)
 			fmt.Print("\x1b[J")
 			state.RenderUI(os.Stdout)

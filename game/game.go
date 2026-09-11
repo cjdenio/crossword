@@ -380,7 +380,7 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 
 		if !cellWasFilled {
 			// jump to next unfilled cell in clue
-			for x := i + 1; x < len(state.SelectedClue.Cells); x++ {
+			for x := (i + 1) % len(state.SelectedClue.Cells); x != i; x = ((x + 1) % len(state.SelectedClue.Cells)) {
 				if state.PuzzleState[state.SelectedClue.Cells[x]] == '-' {
 					state.SelectedCell = state.SelectedClue.Cells[x]
 					break
