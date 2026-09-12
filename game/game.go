@@ -348,6 +348,23 @@ func (state *State) LoadSaveFile(f []byte) error {
 	return nil
 }
 
+func (state *State) SwitchDirections() bool {
+	switch state.SelectedClue.Direction {
+	case puz.DirectionAcross:
+		if state.Puzzle.Cells[state.SelectedCell][1] != nil {
+			state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
+		}
+		return true
+	case puz.DirectionDown:
+		if state.Puzzle.Cells[state.SelectedCell][0] != nil {
+			state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+		}
+		return true
+	}
+
+	return false
+}
+
 func (state *State) HandleInput(buffer []byte) (exited bool) {
 	if len(buffer) == 0 {
 		return false
@@ -360,16 +377,7 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 	}
 
 	if buffer[0] == ' ' {
-		switch state.SelectedClue.Direction {
-		case puz.DirectionAcross:
-			if state.Puzzle.Cells[state.SelectedCell][1] != nil {
-				state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
-			}
-		case puz.DirectionDown:
-			if state.Puzzle.Cells[state.SelectedCell][0] != nil {
-				state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
-			}
-		}
+		state.SwitchDirections()
 	}
 
 	if buffer[0] >= 0x61 && buffer[0] <= 0x7a {
@@ -427,9 +435,9 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 
 	if string(buffer[0:2]) == "\x1b[" {
 		if (buffer[2] == 68 || buffer[2] == 67) && state.SelectedClue != nil && state.SelectedClue.Direction == puz.DirectionDown {
-			state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+			state.SwitchDirections()
 		} else if (buffer[2] == 65 || buffer[2] == 66) && state.SelectedClue != nil && state.SelectedClue.Direction == puz.DirectionAcross {
-			state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
+			state.SwitchDirections()
 		} else {
 			switch buffer[2] {
 			case 68: // left
@@ -444,9 +452,17 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 
 			switch state.SelectedClue.Direction {
 			case puz.DirectionAcross:
-				state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+				if state.Puzzle.Cells[state.SelectedCell][0] != nil {
+					state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+				} else {
+					state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
+				}
 			case puz.DirectionDown:
-				state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
+				if state.Puzzle.Cells[state.SelectedCell][1] != nil {
+					state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
+				} else {
+					state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+				}
 			}
 		}
 	}
