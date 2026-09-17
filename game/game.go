@@ -12,15 +12,22 @@ import (
 	"github.com/cjdenio/crossword/puz"
 )
 
+type SolveState int
+
+const (
+	Unsolved SolveState = iota
+	FilledNotSolved
+	Solved
+)
+
 type State struct {
 	Puzzle          *puz.Puzzle
 	PuzzleState     []rune
 	SelectedCell    int
 	SelectedClue    *puz.Clue
-	Goodbye         bool
 	LastKeySequence string
 	DebugMode       bool
-	SolveState      int
+	SolveState      SolveState
 }
 
 func (state *State) MoveCursor(direction int) {
@@ -217,21 +224,16 @@ func (state *State) RenderUI(w io.Writer) int {
 	uiHeight += 1
 
 	switch state.SolveState {
-	case 1:
+	case FilledNotSolved:
 		fmt.Fprintf(w, "\r\n%s\r\n", AnsiRed("The puzzle was filled, but at least 1 letter is incorrect..."))
 		uiHeight += 2
-	case 2:
+	case Solved:
 		fmt.Fprintf(w, "\r\n%s\r\n", AnsiGreen("The puzzle was solved!"))
 		uiHeight += 2
 	}
 
 	if state.LastKeySequence != "" && state.DebugMode {
 		fmt.Fprintf(w, "\r\n%s\r\n", AnsiDimmed(state.LastKeySequence))
-		uiHeight += 2
-	}
-
-	if state.Goodbye {
-		fmt.Fprint(w, "\r\nsee ya\r\n")
 		uiHeight += 2
 	}
 
@@ -403,13 +405,13 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 
 		if state.GridFilled() {
 			if state.CheckPuzzle() {
-				state.SolveState = 2
+				state.SolveState = Solved
 				return true
 			} else {
-				state.SolveState = 1
+				state.SolveState = FilledNotSolved
 			}
 		} else {
-			state.SolveState = 0
+			state.SolveState = Unsolved
 		}
 	}
 
