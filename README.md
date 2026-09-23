@@ -6,3 +6,5 @@ todo
 - .puz checksums
 - fix shift+enter / shift+tab in other terminals
 - clear grid
+- rebus (at least add message that rebus is not supported)
+- .ipuz files

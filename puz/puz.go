@@ -87,9 +87,9 @@ func readText(b *bufio.Reader, version string) (string, error) {
 			return "", err
 		}
 
-		return decoded, nil
+		return strings.TrimSpace(decoded), nil
 	} else {
-		return string(text[:len(text)-1]), nil
+		return strings.TrimSpace(string(text[:len(text)-1])), nil
 	}
 }
 

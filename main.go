@@ -50,12 +50,7 @@ func main() {
 
 	defer term.Restore(int(os.Stdin.Fd()), termState)
 
-	state := game.State{
-		Puzzle:       puzzle,
-		PuzzleState:  []rune(puzzle.State),
-		SelectedClue: puzzle.Clues[0],
-		SelectedCell: puzzle.Clues[0].Cells[0],
-	}
+	state := game.NewState(puzzle)
 	if debugMode != nil {
 		state.DebugMode = *debugMode
 	}

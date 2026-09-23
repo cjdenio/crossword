@@ -31,12 +31,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		state := game.State{
-			Puzzle:       puzzle,
-			PuzzleState:  []rune(puzzle.State),
-			SelectedClue: puzzle.Clues[0],
-			SelectedCell: puzzle.Clues[0].Cells[0],
-		}
+		state := game.NewState(puzzle)
 
 		io.WriteString(s, "\x1b[?25l")
 

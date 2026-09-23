@@ -28,6 +28,17 @@ type State struct {
 	LastKeySequence string
 	DebugMode       bool
 	SolveState      SolveState
+	CheckState      []rune
+}
+
+func NewState(puzzle *puz.Puzzle) *State {
+	return &State{
+		Puzzle:       puzzle,
+		PuzzleState:  []rune(puzzle.State),
+		SelectedClue: puzzle.Clues[0],
+		SelectedCell: puzzle.Clues[0].Cells[0],
+		CheckState:   make([]rune, len(puzzle.State)),
+	}
 }
 
 func (state *State) MoveCursor(direction int) {
@@ -186,7 +197,7 @@ func (state *State) GridFilled() bool {
 	return !slices.Contains(state.PuzzleState, '-')
 }
 
-func (state *State) CheckPuzzle() bool {
+func (state *State) PuzzleSolved() bool {
 	for i, cell := range state.PuzzleState {
 		if cell == '.' {
 			continue
@@ -198,19 +209,31 @@ func (state *State) CheckPuzzle() bool {
 	return true
 }
 
-func (state *State) RenderUI(w io.Writer) int {
-	selectedClueCells := []int{}
-	if state.SelectedClue != nil {
-		selectedClueCells = state.SelectedClue.Cells
+func (state *State) CheckPuzzle() {
+	result := make([]rune, len(state.PuzzleState))
+
+	for i, cell := range state.PuzzleState {
+		if cell == '.' || cell == '-' {
+			continue
+		}
+		if cell == rune(state.Puzzle.Solution[i]) {
+			result[i] = 'y'
+		} else {
+			result[i] = 'n'
+		}
 	}
 
+	state.CheckState = result
+}
+
+func (state *State) RenderUI(w io.Writer) int {
 	uiHeight := 0
 
 	fmt.Fprintf(w, "\r\nTITLE: %s\r\n", state.Puzzle.Title)
 	uiHeight += 2
 	fmt.Fprintf(w, "AUTHOR: %s\r\n", state.Puzzle.Author)
 	uiHeight += 1
-	fmt.Fprint(w, RenderPuzzle(state.PuzzleState, state.Puzzle.Width, state.Puzzle.Height, selectedClueCells, state.SelectedCell)+"\r\n")
+	fmt.Fprint(w, state.RenderPuzzle()+"\r\n")
 	uiHeight += state.Puzzle.Height + 3
 	if state.SelectedClue != nil {
 		if state.SelectedClue.Direction == puz.DirectionAcross {
@@ -262,17 +285,22 @@ func AnsiRed(s string) string {
 	return fmt.Sprintf("\x1b[31m%s\x1b[0m", s)
 }
 
-func RenderPuzzle(puzzle []rune, width, height int, selectedClueCells []int, selectedCell int) string {
+func (state *State) RenderPuzzle() string {
+	selectedClueCells := []int{}
+	if state.SelectedClue != nil {
+		selectedClueCells = state.SelectedClue.Cells
+	}
+
 	b := strings.Builder{}
 
 	b.WriteRune('┌')
-	for range (width * 2) + 1 {
+	for range (state.Puzzle.Width * 2) + 1 {
 		b.WriteRune('─')
 	}
 	b.WriteString("┐\r\n")
 
-	for index, char := range puzzle {
-		if index%width == 0 {
+	for index, char := range state.PuzzleState {
+		if index%state.Puzzle.Width == 0 {
 			b.WriteString("│ ")
 		}
 
@@ -286,17 +314,26 @@ func RenderPuzzle(puzzle []rune, width, height int, selectedClueCells []int, sel
 			cell = string(char)
 		}
 
-		if selectedCell == index {
+		if state.SelectedCell == index {
 			cell = AnsiInverted(cell)
 		} else if slices.Contains(selectedClueCells, index) {
 			cell = AnsiWhiteBackgrounded(cell)
 		}
 
+		if len(state.CheckState) == len(state.PuzzleState) {
+			switch state.CheckState[index] {
+			case 'y':
+				cell = AnsiGreen(cell)
+			case 'n':
+				cell = AnsiRed(cell)
+			}
+		}
+
 		b.WriteString(cell)
 
-		if (index+1)%width == 0 {
+		if (index+1)%state.Puzzle.Width == 0 {
 			b.WriteString(" │\r\n")
-		} else if char == '.' && puzzle[index+1] == '.' {
+		} else if char == '.' && state.PuzzleState[index+1] == '.' {
 			b.WriteRune(0x2588)
 		} else {
 			// inefficient
@@ -309,7 +346,7 @@ func RenderPuzzle(puzzle []rune, width, height int, selectedClueCells []int, sel
 	}
 
 	b.WriteRune('└')
-	for range (width * 2) + 1 {
+	for range (state.Puzzle.Width * 2) + 1 {
 		b.WriteRune('─')
 	}
 	b.WriteString("┘\r\n")
@@ -385,6 +422,7 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 	if buffer[0] >= 0x61 && buffer[0] <= 0x7a {
 		cellWasFilled := state.PuzzleState[state.SelectedCell] != '-'
 		state.PuzzleState[state.SelectedCell] = unicode.ToUpper(rune(buffer[0]))
+		state.CheckState[state.SelectedCell] = 0x00
 
 		i := slices.Index(state.SelectedClue.Cells, state.SelectedCell)
 
@@ -404,7 +442,7 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 		}
 
 		if state.GridFilled() {
-			if state.CheckPuzzle() {
+			if state.PuzzleSolved() {
 				state.SolveState = Solved
 				return true
 			} else {
