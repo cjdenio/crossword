@@ -226,6 +226,21 @@ func (state *State) CheckPuzzle() {
 	state.CheckState = result
 }
 
+func (state *State) CheckWord(clue *puz.Clue) {
+	for i, cellIdx := range clue.Cells {
+		cellState := state.PuzzleState[cellIdx]
+		if cellState == '-' || cellState == '.' {
+			continue
+		}
+
+		if cellState == rune(clue.Solution[i]) {
+			state.CheckState[cellIdx] = 'y'
+		} else {
+			state.CheckState[cellIdx] = 'n'
+		}
+	}
+}
+
 func (state *State) RenderUI(w io.Writer) int {
 	uiHeight := 0
 
