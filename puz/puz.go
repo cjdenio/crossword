@@ -11,38 +11,6 @@ import (
 	"golang.org/x/text/encoding/charmap"
 )
 
-type Direction int
-
-const (
-	DirectionAcross Direction = iota
-	DirectionDown
-)
-
-type Clue struct {
-	Clue      string
-	Solution  string
-	Cells     []int
-	Direction Direction
-	Number    int
-}
-
-type Puzzle struct {
-	ClueCount int
-	Width     int
-	Height    int
-
-	Title     string
-	Author    string
-	Copyright string
-
-	Solution string
-	State    string
-
-	Clues []*Clue
-
-	Cells [][2]*Clue
-}
-
 func startOfDownClue(puzzle string, width, height, index int) bool {
 	if puzzle[index] == '.' {
 		return false

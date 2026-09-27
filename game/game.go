@@ -21,23 +21,25 @@ const (
 )
 
 type State struct {
-	Puzzle          *puz.Puzzle
-	PuzzleState     []rune
-	SelectedCell    int
-	SelectedClue    *puz.Clue
-	LastKeySequence string
-	DebugMode       bool
-	SolveState      SolveState
-	CheckState      []rune
+	Puzzle            *puz.Puzzle
+	PuzzleState       []rune
+	SelectedCell      int
+	SelectedClue      *puz.Clue
+	LastKeySequence   string
+	DebugMode         bool
+	SolveState        SolveState
+	CheckState        []rune
+	RebusConfirmation bool
 }
 
 func NewState(puzzle *puz.Puzzle) *State {
 	return &State{
-		Puzzle:       puzzle,
-		PuzzleState:  []rune(puzzle.State),
-		SelectedClue: puzzle.Clues[0],
-		SelectedCell: puzzle.Clues[0].Cells[0],
-		CheckState:   make([]rune, len(puzzle.State)),
+		Puzzle:            puzzle,
+		PuzzleState:       []rune(puzzle.State),
+		SelectedClue:      puzzle.Clues[0],
+		SelectedCell:      puzzle.Clues[0].Cells[0],
+		CheckState:        make([]rune, len(puzzle.State)),
+		RebusConfirmation: puzzle.HasRebus,
 	}
 }
 
@@ -242,6 +244,11 @@ func (state *State) CheckWord(clue *puz.Clue) {
 }
 
 func (state *State) RenderUI(w io.Writer) int {
+	if state.RebusConfirmation {
+		fmt.Fprint(w, "This puzzle contains a rebus. This tool does not support rebuses.\r\nPress 'y' to continue anyway, or press any other key to exit.\r\n")
+		return 2
+	}
+
 	uiHeight := 0
 
 	fmt.Fprintf(w, "\r\nTITLE: %s\r\n", state.Puzzle.Title)
@@ -422,6 +429,15 @@ func (state *State) SwitchDirections() bool {
 func (state *State) HandleInput(buffer []byte) (exited bool) {
 	if len(buffer) == 0 {
 		return false
+	}
+
+	if state.RebusConfirmation {
+		if buffer[0] == 'y' {
+			state.RebusConfirmation = false
+			return false
+		} else {
+			return true
+		}
 	}
 
 	state.LastKeySequence = fmt.Sprintf("%v", buffer)

@@ -1,4 +1,4 @@
-Very silly terminal-based crossword solver. It can play .puz files from a variety of sources, including [Crosshare](https://crosshare.org).
+Very silly terminal-based crossword solver. It can play .puz / .ipuz files from a variety of sources, including [Crosshare](https://crosshare.org).
 
 - Requirements: [Go](https://go.dev)
 - Build: `make`
@@ -16,5 +16,5 @@ todo
 - .puz checksums
 - fix shift+enter / shift+tab in other terminals
 - clear grid
-- rebus (at least add message that rebus is not supported)
-- .ipuz files
+- rebus
+- detect rebus for .puz files

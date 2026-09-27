@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -20,10 +21,11 @@ func main() {
 	}()
 
 	debugMode := flag.Bool("debug", false, "")
+	dumpMode := flag.Bool("dump", false, "")
 	flag.Parse()
 
 	filename := flag.Arg(0)
-	file, err := os.ReadFile(filename)
+	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -33,9 +35,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	puzzle, err := puz.ParsePuz(file)
+	puzzle, err := puz.LoadPuzzle(file)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if dumpMode != nil && *dumpMode {
+		json.NewEncoder(os.Stdout).Encode(puzzle)
+		fmt.Print("\r\n")
+		return
 	}
 
 	fmt.Print("\x1b[?25l")
