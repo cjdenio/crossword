@@ -27,6 +27,27 @@ type iPuzFile struct {
 	Clues      map[string][]iPuzClue `json:"clues"`
 }
 
+func unwrapCell(cell any) (any, error) {
+	switch c := cell.(type) {
+	case string:
+		if c == "#" {
+			return "#", nil
+		} else if i, err := strconv.Atoi(c); err == nil {
+			return i, nil
+		} else {
+			return nil, errors.New("invalid string")
+		}
+	case float64:
+		return int(c), nil
+	case map[string]any:
+		if unwrappedCell, ok := c["cell"]; ok {
+			return unwrapCell(unwrappedCell) // recursion babyyyyyy
+		}
+	}
+
+	return nil, errors.New("unknown type")
+}
+
 func ParseIPuz(file []byte) (*Puzzle, error) {
 	var parsed iPuzFile
 	err := json.Unmarshal(file, &parsed)
@@ -56,21 +77,18 @@ func ParseIPuz(file []byte) (*Puzzle, error) {
 	state := strings.Builder{}
 	for y, row := range parsed.Puzzle {
 		for x, cell := range row {
-			switch c := cell.(type) {
+			unwrappedCell, err := unwrapCell(cell)
+			if err != nil {
+				return nil, err
+			}
+			switch c := unwrappedCell.(type) {
 			case string:
-				if c == "#" {
-					state.WriteRune('.')
-				} else {
-					if i, err := strconv.Atoi(c); err == nil {
-						clueToCellMap[i] = [2]int{x, y}
-					}
-					state.WriteRune('-')
-				}
-			case float64:
-				clueToCellMap[int(c)] = [2]int{x, y}
+				state.WriteRune('.')
+			case int:
+				clueToCellMap[c] = [2]int{x, y}
 				state.WriteRune('-')
 			default:
-				state.WriteRune('-')
+				return nil, errors.New("unexpected type in .ipuz file")
 			}
 		}
 	}
