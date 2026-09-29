@@ -3,6 +3,7 @@ package puz
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -16,6 +17,7 @@ type iPuzClue struct {
 	Clue   string `json:"clue"`
 }
 type iPuzFile struct {
+	Kind       []string              `json:"kind"`
 	Title      string                `json:"title"`
 	Author     string                `json:"author"`
 	Copyright  string                `json:"copyright"`
@@ -30,6 +32,12 @@ func ParseIPuz(file []byte) (*Puzzle, error) {
 	err := json.Unmarshal(file, &parsed)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(parsed.Kind) == 0 || !slices.ContainsFunc(parsed.Kind, func(k string) bool {
+		return strings.HasPrefix(k, "http://ipuz.org/crossword")
+	}) {
+		return nil, errors.New("ipuz file is not a crossword")
 	}
 
 	puzzle := new(Puzzle)

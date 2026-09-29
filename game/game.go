@@ -32,6 +32,47 @@ type State struct {
 	RebusConfirmation bool
 }
 
+func RenderWithLineWrap(s string, width int) (out string, lines int) {
+	builder := strings.Builder{}
+	runes := []rune(s)
+
+	counter := 0
+	lines = 1
+
+	for i := 0; i < len(runes); i++ {
+		char := runes[i]
+
+		if char == '\n' {
+			builder.WriteString("\r\n")
+			lines++
+			counter = 0
+			continue
+		}
+
+		if char == '\r' && i < len(runes)-1 && runes[i+1] == '\n' {
+			builder.WriteString("\r\n")
+			lines++
+			counter = 0
+			i++
+			continue
+		}
+
+		builder.WriteRune(char)
+		counter++
+
+		if counter >= width && i < len(runes)-1 {
+			lines++
+			builder.WriteString("\r\n")
+			counter = 0
+		}
+	}
+
+	builder.WriteString("\r\n")
+
+	out = builder.String()
+	return
+}
+
 func NewState(puzzle *puz.Puzzle) *State {
 	return &State{
 		Puzzle:            puzzle,
@@ -243,7 +284,7 @@ func (state *State) CheckWord(clue *puz.Clue) {
 	}
 }
 
-func (state *State) RenderUI(w io.Writer) int {
+func (state *State) RenderUI(w io.Writer, width int) int {
 	if state.RebusConfirmation {
 		fmt.Fprint(w, "This puzzle contains a rebus. This tool does not support rebuses.\r\nPress 'y' to continue anyway, or press any other key to exit.\r\n")
 		return 2
@@ -258,12 +299,16 @@ func (state *State) RenderUI(w io.Writer) int {
 	fmt.Fprint(w, state.RenderPuzzle()+"\r\n")
 	uiHeight += state.Puzzle.Height + 3
 	if state.SelectedClue != nil {
+		directionStr := "down"
 		if state.SelectedClue.Direction == puz.DirectionAcross {
-			fmt.Fprintf(w, "%d-across: %s\r\n\r\n", state.SelectedClue.Number, state.SelectedClue.Clue)
-		} else {
-			fmt.Fprintf(w, "%d-down: %s\r\n\r\n", state.SelectedClue.Number, state.SelectedClue.Clue)
+			directionStr = "across"
 		}
-		uiHeight += 2
+
+		clueStr, clueLines := RenderWithLineWrap(fmt.Sprintf("%d-%s: %s", state.SelectedClue.Number, directionStr, state.SelectedClue.Clue), width)
+		w.Write([]byte(clueStr))
+		uiHeight += clueLines
+		io.WriteString(w, "\r\n")
+		uiHeight += 1
 	}
 	fmt.Fprintf(w, "%s\r\n", state.Puzzle.Copyright)
 	uiHeight += 1

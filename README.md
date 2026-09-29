@@ -10,7 +10,6 @@ Very silly terminal-based crossword solver. It can play .puz / .ipuz files from 
 
 todo
 
-- correctly calculate uiHeight with multi-line clues
 - timer
 - reveal grid/word
 - .puz checksums

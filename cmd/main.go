@@ -13,6 +13,11 @@ import (
 	"golang.org/x/term"
 )
 
+func getTermWidth() int {
+	w, _, _ := term.GetSize(int(os.Stdin.Fd()))
+	return w
+}
+
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -72,7 +77,7 @@ func main() {
 		}
 	}
 
-	uiHeight := state.RenderUI(os.Stdout)
+	uiHeight := state.RenderUI(os.Stdout, getTermWidth())
 
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -108,13 +113,13 @@ func main() {
 			state.SelectedCell = -1
 			fmt.Printf("\r\x1b[%dA", uiHeight)
 			fmt.Print("\x1b[J")
-			state.RenderUI(os.Stdout)
+			state.RenderUI(os.Stdout, getTermWidth())
 			return
 		}
 
 		fmt.Printf("\r\x1b[%dA", uiHeight)
 		fmt.Print("\x1b[J")
 
-		uiHeight = state.RenderUI(os.Stdout)
+		uiHeight = state.RenderUI(os.Stdout, getTermWidth())
 	}
 }
