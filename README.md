@@ -16,4 +16,3 @@ todo
 - fix shift+enter / shift+tab in other terminals
 - clear grid
 - rebus
-- detect rebus for .puz files

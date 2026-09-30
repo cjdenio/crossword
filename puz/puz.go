@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"io"
 	"math"
 	"strings"
 
@@ -61,33 +62,126 @@ func readText(b *bufio.Reader, version string) (string, error) {
 	}
 }
 
+type ExtraBlock struct {
+	Name string
+	Data []byte
+}
+
+func readExtraBlock(r *bufio.Reader) (*ExtraBlock, error) {
+	name := make([]byte, 4)
+	_, err := r.Read(name)
+	if err != nil {
+		return nil, err
+	}
+
+	length := make([]byte, 2)
+	_, err = r.Read(length)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = r.Discard(2)
+	if err != nil {
+		return nil, err
+	}
+
+	data := make([]byte, binary.LittleEndian.Uint16(length))
+	_, err = r.Read(data)
+	if err != nil {
+		return nil, err
+	}
+
+	// consume trailing null byte
+	_, err = r.Discard(1)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExtraBlock{
+		Name: string(name),
+		Data: data,
+	}, nil
+}
+
 func ParsePuz(file []byte) (*Puzzle, error) {
+	r := bytes.NewReader(file)
+
+	_, err := r.Seek(2, io.SeekStart) // consume the checksum
+	if err != nil {
+		return nil, err
+	}
+
 	// read magic bytes
-	magic := string(file[2:14])
-	if magic != "ACROSS&DOWN\x00" {
+	magic := make([]byte, 12)
+	_, err = r.Read(magic)
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(magic, []byte("ACROSS&DOWN\x00")) {
 		return nil, errors.New("not a valid .puz file")
 	}
 
 	puzzle := new(Puzzle)
 
+	_, err = r.Seek(10, io.SeekCurrent)
+	if err != nil {
+		return nil, err
+	}
+
 	// read header
-	version := string(file[0x18:0x1B])
-	puzzle.Width = int(file[0x2C])
-	puzzle.Height = int(file[0x2D])
-	puzzle.ClueCount = int(binary.LittleEndian.Uint16(file[0x2E:0x30]))
+	version := make([]byte, 4)
+	_, err = r.Read(version)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = r.Seek(16, io.SeekCurrent)
+	if err != nil {
+		return nil, err
+	}
+
+	width, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+	height, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	puzzle.Width = int(width)
+	puzzle.Height = int(height)
+
+	clueCount := make([]byte, 2)
+	_, err = r.Read(clueCount)
+	if err != nil {
+		return nil, err
+	}
+	puzzle.ClueCount = int(binary.LittleEndian.Uint16(clueCount))
 
 	puzzleSize := puzzle.Width * puzzle.Height
-	solutionStart := 0x34
-	solutionEnd := 0x34 + puzzleSize
 
-	stateStart := solutionEnd
-	stateEnd := stateStart + puzzleSize
+	_, err = r.Seek(4, io.SeekCurrent)
+	if err != nil {
+		return nil, err
+	}
 
-	puzzle.Solution = string(file[solutionStart:solutionEnd])
-	puzzle.State = string(file[stateStart:stateEnd])
+	solution := make([]byte, puzzleSize)
+	_, err = r.Read(solution)
+	if err != nil {
+		return nil, err
+	}
+	state := make([]byte, puzzleSize)
+	_, err = r.Read(state)
+	if err != nil {
+		return nil, err
+	}
 
-	// read text
-	buf := bufio.NewReader(bytes.NewReader(file[stateEnd:]))
+	puzzle.Solution = string(solution)
+	puzzle.State = string(state)
+
+	// read text fields
+	buf := bufio.NewReader(r)
 
 	title, err := readText(buf, string(version[0]))
 	if err != nil {
@@ -115,6 +209,24 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 			return nil, err
 		}
 		clues = append(clues, clue)
+	}
+
+	// read the "note" field, currently unused
+	_, err = readText(buf, string(version[0]))
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		extra, err := readExtraBlock(buf)
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		if extra.Name == "RTBL" {
+			puzzle.HasRebus = true
+		}
 	}
 
 	// assign clue numbers
