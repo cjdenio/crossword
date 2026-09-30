@@ -20,16 +20,26 @@ const (
 	Solved
 )
 
+type UIState int
+
+const (
+	StateGame UIState = iota
+	StateRebusConfirmation
+	StateMenu
+	StateRevealMenu
+	StateCheckMenu
+)
+
 type State struct {
-	Puzzle            *puz.Puzzle
-	PuzzleState       []rune
-	SelectedCell      int
-	SelectedClue      *puz.Clue
-	LastKeySequence   string
-	DebugMode         bool
-	SolveState        SolveState
-	CheckState        []rune
-	RebusConfirmation bool
+	Puzzle          *puz.Puzzle
+	PuzzleState     []rune
+	SelectedCell    int
+	SelectedClue    *puz.Clue
+	LastKeySequence string
+	DebugMode       bool
+	SolveState      SolveState
+	CheckState      []rune
+	UIState         UIState
 }
 
 func RenderWithLineWrap(s string, width int) (out string, lines int) {
@@ -74,13 +84,17 @@ func RenderWithLineWrap(s string, width int) (out string, lines int) {
 }
 
 func NewState(puzzle *puz.Puzzle) *State {
+	state := StateGame
+	if puzzle.HasRebus {
+		state = StateRebusConfirmation
+	}
 	return &State{
-		Puzzle:            puzzle,
-		PuzzleState:       []rune(puzzle.State),
-		SelectedClue:      puzzle.Clues[0],
-		SelectedCell:      puzzle.Clues[0].Cells[0],
-		CheckState:        make([]rune, len(puzzle.State)),
-		RebusConfirmation: puzzle.HasRebus,
+		Puzzle:       puzzle,
+		PuzzleState:  []rune(puzzle.State),
+		SelectedClue: puzzle.Clues[0],
+		SelectedCell: puzzle.Clues[0].Cells[0],
+		CheckState:   make([]rune, len(puzzle.State)),
+		UIState:      state,
 	}
 }
 
@@ -284,8 +298,25 @@ func (state *State) CheckWord(clue *puz.Clue) {
 	}
 }
 
+func (state *State) RevealWord(clue *puz.Clue) {
+	for i, cellIdx := range clue.Cells {
+		state.PuzzleState[cellIdx] = rune(clue.Solution[i])
+		state.CheckState[cellIdx] = 'y'
+	}
+}
+
+func (state *State) RevealPuzzle() {
+	for i, cell := range state.PuzzleState {
+		if cell == '.' {
+			continue
+		}
+		state.PuzzleState[i] = rune(state.Puzzle.Solution[i])
+		state.CheckState[i] = 'y'
+	}
+}
+
 func (state *State) RenderUI(w io.Writer, width int) int {
-	if state.RebusConfirmation {
+	if state.UIState == StateRebusConfirmation {
 		fmt.Fprint(w, "This puzzle contains a rebus. This tool does not support rebuses.\r\nPress 'y' to continue anyway, or press any other key to exit.\r\n")
 		return 2
 	}
@@ -312,6 +343,21 @@ func (state *State) RenderUI(w io.Writer, width int) int {
 	}
 	fmt.Fprintf(w, "%s\r\n", state.Puzzle.Copyright)
 	uiHeight += 1
+
+	switch state.UIState {
+	case StateGame:
+		fmt.Fprintln(w, AnsiDimmed("\r\n[enter]/[tab]: next word | [ctrl+a]: menu | [ctrl+c]: exit"))
+		uiHeight += 2
+	case StateMenu:
+		fmt.Fprintln(w, AnsiDimmed("\r\n[c]: check puzzle/word | [r]: reveal puzzle/word | [x]: clear grid | [q]: exit menu"))
+		uiHeight += 2
+	case StateCheckMenu:
+		fmt.Fprintln(w, AnsiDimmed("\r\n[w]: check word | [p]: check puzzle | [q]: exit menu"))
+		uiHeight += 2
+	case StateRevealMenu:
+		fmt.Fprintln(w, AnsiDimmed("\r\n[w]: reveal word | [p]: reveal puzzle | [q]: exit menu"))
+		uiHeight += 2
+	}
 
 	switch state.SolveState {
 	case FilledNotSolved:
@@ -471,24 +517,71 @@ func (state *State) SwitchDirections() bool {
 	return false
 }
 
+func (state *State) ClearGrid() {
+	for i, cell := range state.PuzzleState {
+		if cell != '.' {
+			state.PuzzleState[i] = '-'
+			state.CheckState[i] = '\x00'
+		}
+	}
+}
+
 func (state *State) HandleInput(buffer []byte) (exited bool) {
 	if len(buffer) == 0 {
 		return false
-	}
-
-	if state.RebusConfirmation {
-		if buffer[0] == 'y' {
-			state.RebusConfirmation = false
-			return false
-		} else {
-			return true
-		}
 	}
 
 	state.LastKeySequence = fmt.Sprintf("%v", buffer)
 
 	if buffer[0] == 3 {
 		return true
+	}
+
+	switch state.UIState {
+	case StateRebusConfirmation:
+		if buffer[0] == 'y' {
+			state.UIState = StateGame
+			return false
+		} else {
+			return true
+		}
+	case StateMenu:
+		switch buffer[0] {
+		case 'c':
+			state.UIState = StateCheckMenu
+		case 'r':
+			state.UIState = StateRevealMenu
+		case 'x':
+			state.ClearGrid()
+			state.UIState = StateGame
+		default:
+			state.UIState = StateGame
+		}
+		return false
+	case StateCheckMenu:
+		switch buffer[0] {
+		case 'w':
+			state.CheckWord(state.SelectedClue)
+		case 'p':
+			state.CheckPuzzle()
+		}
+		state.UIState = StateGame
+		return false
+	case StateRevealMenu:
+		switch buffer[0] {
+		case 'w':
+			state.RevealWord(state.SelectedClue)
+		case 'p':
+			state.RevealPuzzle()
+			return true
+		}
+		state.UIState = StateGame
+		return false
+	}
+
+	if buffer[0] == '\x01' {
+		state.UIState = StateMenu
+		return false
 	}
 
 	if buffer[0] == ' ' {
