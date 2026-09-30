@@ -38,6 +38,8 @@ type Puzzle struct {
 	Cells [][2]*Clue
 
 	HasRebus bool
+
+	RebusCells map[int]string
 }
 
 func LoadPuzzle(r io.Reader) (*Puzzle, error) {

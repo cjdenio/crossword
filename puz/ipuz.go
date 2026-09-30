@@ -63,6 +63,8 @@ func ParseIPuz(file []byte) (*Puzzle, error) {
 
 	puzzle := new(Puzzle)
 
+	puzzle.RebusCells = make(map[int]string)
+
 	puzzle.Title = parsed.Title
 	puzzle.Author = parsed.Author
 	puzzle.Copyright = parsed.Copyright
@@ -95,12 +97,13 @@ func ParseIPuz(file []byte) (*Puzzle, error) {
 	puzzle.State = state.String()
 
 	solution := strings.Builder{}
-	for _, row := range parsed.Solution {
-		for _, cell := range row {
+	for y, row := range parsed.Solution {
+		for x, cell := range row {
 			if cell == "#" {
 				solution.WriteRune('.')
 			} else if len(cell) > 1 {
 				solution.WriteByte(cell[0])
+				puzzle.RebusCells[y*puzzle.Width+x] = cell
 				puzzle.HasRebus = true
 			} else if len(cell) == 1 {
 				solution.WriteString(cell)

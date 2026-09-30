@@ -7,6 +7,8 @@ import (
 	"errors"
 	"io"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"golang.org/x/text/encoding/charmap"
@@ -123,6 +125,8 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 
 	puzzle := new(Puzzle)
 
+	puzzle.RebusCells = make(map[int]string)
+
 	_, err = r.Seek(10, io.SeekCurrent)
 	if err != nil {
 		return nil, err
@@ -217,6 +221,8 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 		return nil, err
 	}
 
+	extraBlocks := make(map[string]*ExtraBlock)
+
 	for {
 		extra, err := readExtraBlock(buf)
 		if errors.Is(err, io.EOF) {
@@ -224,8 +230,30 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 		} else if err != nil {
 			return nil, err
 		}
-		if extra.Name == "RTBL" {
-			puzzle.HasRebus = true
+		extraBlocks[extra.Name] = extra
+	}
+
+	grbs, grbsOk := extraBlocks["GRBS"]
+	trbl, trblOk := extraBlocks["RTBL"]
+	if grbsOk && trblOk {
+		puzzle.HasRebus = true
+		rebusCellMap := make(map[int][]int)
+		for i, b := range grbs.Data {
+			if b > 0 {
+				rebusCellMap[int(b)-1] = append(rebusCellMap[int(b)-1], i)
+			}
+		}
+
+		rebusData := regexp.MustCompile(`\s*(\d+):(\w+);\s*`).FindAllStringSubmatch(string(trbl.Data), -1)
+		for _, rebus := range rebusData {
+			cell, err := strconv.Atoi(rebus[1])
+			if err != nil {
+				continue
+			}
+
+			for _, c := range rebusCellMap[cell] {
+				puzzle.RebusCells[c] = rebus[2]
+			}
 		}
 	}
 
