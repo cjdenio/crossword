@@ -39,8 +39,20 @@ func main() {
 			io.WriteString(s, "\x1b[?25h")
 		}()
 
-		pty, _, _ := s.Pty() // TODO: actually handle terminal size changes
-		uiHeight := state.RenderUI(s, pty.Window.Width)
+		pty, winCh, isPty := s.Pty()
+		if !isPty {
+			return
+		}
+
+		windowWidth := pty.Window.Width
+
+		uiHeight := state.RenderUI(s, windowWidth)
+
+		go func() {
+			for window := range winCh {
+				windowWidth = window.Width
+			}
+		}()
 
 		scanner := bufio.NewScanner(s)
 		scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -72,14 +84,14 @@ func main() {
 				state.SelectedCell = -1
 				fmt.Fprintf(s, "\r\x1b[%dA", uiHeight)
 				fmt.Fprint(s, "\x1b[J")
-				state.RenderUI(s, pty.Window.Width)
+				state.RenderUI(s, windowWidth)
 				break
 			}
 
 			fmt.Fprintf(s, "\r\x1b[%dA", uiHeight)
 			fmt.Fprint(s, "\x1b[J")
 
-			uiHeight = state.RenderUI(s, pty.Window.Width)
+			uiHeight = state.RenderUI(s, windowWidth)
 		}
 
 		log.Printf("%s disconnected\n", s.RemoteAddr().String())

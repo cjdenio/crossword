@@ -348,16 +348,16 @@ func (state *State) RenderUI(w io.Writer, width int) int {
 
 	switch state.UIState {
 	case StateGame:
-		fmt.Fprintln(w, AnsiDimmed("[enter]/[tab]: next word | [ctrl+a]: menu | [ctrl+c]: exit"))
+		fmt.Fprint(w, AnsiDimmed("[enter]/[tab]: next word | [ctrl+a]: menu | [ctrl+c]: exit\r\n"))
 		uiHeight += 1
 	case StateMenu:
-		fmt.Fprintln(w, AnsiDimmed("[c]: check puzzle/word | [r]: reveal puzzle/word | [x]: clear grid | [q]: exit menu"))
+		fmt.Fprint(w, AnsiDimmed("[c]: check puzzle/word | [r]: reveal puzzle/word | [x]: clear grid | [q]: exit menu\r\n"))
 		uiHeight += 1
 	case StateCheckMenu:
-		fmt.Fprintln(w, AnsiDimmed("[w]: check word | [p]: check puzzle | [q]: exit menu"))
+		fmt.Fprint(w, AnsiDimmed("[w]: check word | [p]: check puzzle | [q]: exit menu\r\n"))
 		uiHeight += 1
 	case StateRevealMenu:
-		fmt.Fprintln(w, AnsiDimmed("[w]: reveal word | [p]: reveal puzzle | [q]: exit menu"))
+		fmt.Fprint(w, AnsiDimmed("[w]: reveal word | [p]: reveal puzzle | [q]: exit menu\r\n"))
 		uiHeight += 1
 	}
 
