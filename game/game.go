@@ -341,22 +341,24 @@ func (state *State) RenderUI(w io.Writer, width int) int {
 		io.WriteString(w, "\r\n")
 		uiHeight += 1
 	}
-	fmt.Fprintf(w, "%s\r\n", state.Puzzle.Copyright)
-	uiHeight += 1
+	if state.Puzzle.Copyright != "" {
+		fmt.Fprintf(w, "%s\r\n\r\n", state.Puzzle.Copyright)
+		uiHeight += 2
+	}
 
 	switch state.UIState {
 	case StateGame:
-		fmt.Fprintln(w, AnsiDimmed("\r\n[enter]/[tab]: next word | [ctrl+a]: menu | [ctrl+c]: exit"))
-		uiHeight += 2
+		fmt.Fprintln(w, AnsiDimmed("[enter]/[tab]: next word | [ctrl+a]: menu | [ctrl+c]: exit"))
+		uiHeight += 1
 	case StateMenu:
-		fmt.Fprintln(w, AnsiDimmed("\r\n[c]: check puzzle/word | [r]: reveal puzzle/word | [x]: clear grid | [q]: exit menu"))
-		uiHeight += 2
+		fmt.Fprintln(w, AnsiDimmed("[c]: check puzzle/word | [r]: reveal puzzle/word | [x]: clear grid | [q]: exit menu"))
+		uiHeight += 1
 	case StateCheckMenu:
-		fmt.Fprintln(w, AnsiDimmed("\r\n[w]: check word | [p]: check puzzle | [q]: exit menu"))
-		uiHeight += 2
+		fmt.Fprintln(w, AnsiDimmed("[w]: check word | [p]: check puzzle | [q]: exit menu"))
+		uiHeight += 1
 	case StateRevealMenu:
-		fmt.Fprintln(w, AnsiDimmed("\r\n[w]: reveal word | [p]: reveal puzzle | [q]: exit menu"))
-		uiHeight += 2
+		fmt.Fprintln(w, AnsiDimmed("[w]: reveal word | [p]: reveal puzzle | [q]: exit menu"))
+		uiHeight += 1
 	}
 
 	switch state.SolveState {
