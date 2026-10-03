@@ -29,6 +29,7 @@ type Puzzle struct {
 	Title     string
 	Author    string
 	Copyright string
+	Note      string
 
 	Solution string
 	State    string

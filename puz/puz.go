@@ -215,11 +215,11 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 		clues = append(clues, clue)
 	}
 
-	// read the "note" field, currently unused
-	_, err = readText(buf, string(version[0]))
+	note, err := readText(buf, string(version[0]))
 	if err != nil {
 		return nil, err
 	}
+	puzzle.Note = note
 
 	extraBlocks := make(map[string]*ExtraBlock)
 

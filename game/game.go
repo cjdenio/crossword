@@ -40,6 +40,7 @@ type State struct {
 	SolveState      SolveState
 	CheckState      []rune
 	UIState         UIState
+	NoteVisible     bool
 }
 
 func RenderWithLineWrap(s string, width int) (out string, lines int) {
@@ -327,8 +328,17 @@ func (state *State) RenderUI(w io.Writer, width int) int {
 	uiHeight += 2
 	fmt.Fprintf(w, "AUTHOR: %s\r\n", state.Puzzle.Author)
 	uiHeight += 1
+
+	if state.Puzzle.Note != "" && state.NoteVisible {
+		note, noteLines := RenderWithLineWrap(state.Puzzle.Note, min(width, 60))
+
+		fmt.Fprintf(w, "\r\n%s\r\n", AnsiDimmed(note))
+		uiHeight += noteLines + 2
+	}
+
 	fmt.Fprint(w, state.RenderPuzzle()+"\r\n")
 	uiHeight += state.Puzzle.Height + 3
+
 	if state.SelectedClue != nil {
 		directionStr := "down"
 		if state.SelectedClue.Direction == puz.DirectionAcross {
@@ -348,7 +358,12 @@ func (state *State) RenderUI(w io.Writer, width int) int {
 
 	switch state.UIState {
 	case StateGame:
-		fmt.Fprint(w, AnsiDimmed("[enter]/[tab]: next word | [ctrl+a]: menu | [ctrl+c]: exit\r\n"))
+		line := "[enter]/[tab]: next word | [ctrl+a]: menu | [ctrl+c]: exit"
+		if state.Puzzle.Note != "" {
+			line += " | [ctrl+n]: toggle note"
+		}
+		line += " | [ctrl+c]: exit\r\n"
+		fmt.Fprint(w, AnsiDimmed(line))
 		uiHeight += 1
 	case StateMenu:
 		fmt.Fprint(w, AnsiDimmed("[c]: check puzzle/word | [r]: reveal puzzle/word | [x]: clear grid | [q]: exit menu\r\n"))
@@ -586,6 +601,11 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 		return false
 	}
 
+	if buffer[0] == '\x0E' {
+		state.NoteVisible = !state.NoteVisible
+		return false
+	}
+
 	if buffer[0] == ' ' {
 		state.SwitchDirections()
 	}
@@ -628,10 +648,12 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 		// is there a filled cell underneath the cursor?
 		if state.PuzzleState[state.SelectedCell] != '-' {
 			state.PuzzleState[state.SelectedCell] = '-'
+			state.CheckState[state.SelectedCell] = 0x00
 		} else {
 			i := slices.Index(state.SelectedClue.Cells, state.SelectedCell)
 			if i > 0 {
 				state.PuzzleState[state.SelectedClue.Cells[i-1]] = '-' // clear the previous cell
+				state.CheckState[state.SelectedClue.Cells[i-1]] = 0x00
 				state.SelectedCell = state.SelectedClue.Cells[i-1]
 			}
 		}

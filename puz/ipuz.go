@@ -21,6 +21,7 @@ type iPuzFile struct {
 	Title      string                `json:"title"`
 	Author     string                `json:"author"`
 	Copyright  string                `json:"copyright"`
+	Notes      string                `json:"notes"`
 	Puzzle     [][]any               `json:"puzzle"`
 	Solution   [][]string            `json:"solution"`
 	Dimensions iPuzDimensions        `json:"dimensions"`
@@ -68,6 +69,7 @@ func ParseIPuz(file []byte) (*Puzzle, error) {
 	puzzle.Title = parsed.Title
 	puzzle.Author = parsed.Author
 	puzzle.Copyright = parsed.Copyright
+	puzzle.Note = parsed.Notes
 
 	puzzle.Width = parsed.Dimensions.Width
 	puzzle.Height = parsed.Dimensions.Height
