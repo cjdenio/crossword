@@ -2,7 +2,7 @@ Very silly terminal-based crossword solver. It can play .puz / .ipuz files from 
 
 - Requirements: [Go](https://go.dev)
 - Build: `make`
-- Usage: `./bin/crossword <file>.puz`
+- Usage: `./bin/crossword <file>.{ipuz,puz}`
 
 ![demo](demo.gif)
 
