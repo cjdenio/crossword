@@ -358,7 +358,7 @@ func (state *State) RenderUI(w io.Writer, width int) int {
 
 	switch state.UIState {
 	case StateGame:
-		line := "[enter]/[tab]: next word | [ctrl+a]: menu | [ctrl+c]: exit"
+		line := "[enter]/[tab]: next word | [ctrl+a]: menu"
 		if state.Puzzle.Note != "" {
 			line += " | [ctrl+n]: toggle note"
 		}
