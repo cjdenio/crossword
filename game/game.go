@@ -172,6 +172,8 @@ func (state *State) NextWord() {
 		return
 	}
 
+	puzzleFilled := state.GridFilled()
+
 	foundSelectedClue := false
 
 	for _, clue := range state.Puzzle.Clues {
@@ -180,7 +182,7 @@ func (state *State) NextWord() {
 			continue
 		}
 
-		if foundSelectedClue && clue.Direction == state.SelectedClue.Direction && !state.ClueFilled(clue) {
+		if foundSelectedClue && clue.Direction == state.SelectedClue.Direction && (puzzleFilled || !state.ClueFilled(clue)) {
 			state.SelectedClue = clue
 			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
 			return
@@ -188,7 +190,7 @@ func (state *State) NextWord() {
 	}
 
 	for _, clue := range state.Puzzle.Clues {
-		if clue.Direction != state.SelectedClue.Direction && !state.ClueFilled(clue) {
+		if clue.Direction != state.SelectedClue.Direction && (puzzleFilled || !state.ClueFilled(clue)) {
 			state.SelectedClue = clue
 			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
 			return
@@ -198,7 +200,7 @@ func (state *State) NextWord() {
 	for _, clue := range state.Puzzle.Clues {
 		if clue == state.SelectedClue {
 			return
-		} else if clue.Direction == state.SelectedClue.Direction && !state.ClueFilled(clue) {
+		} else if clue.Direction == state.SelectedClue.Direction && (puzzleFilled || !state.ClueFilled(clue)) {
 			state.SelectedClue = clue
 			state.SelectedCell = state.FirstUnfilledCellForClue(clue)
 			return
