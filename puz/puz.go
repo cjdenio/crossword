@@ -15,32 +15,32 @@ import (
 )
 
 func startOfDownClue(puzzle string, width, height, index int) bool {
-	if puzzle[index] == '.' {
+	if CellIsBlank(puzzle[index]) {
 		return false
 	}
-	if int(math.Floor(float64(index/width)))+1 == height || puzzle[index+width] == '.' {
+	if int(math.Floor(float64(index/width)))+1 == height || CellIsBlank(puzzle[index+width]) {
 		return false
 	}
 	if index < width {
 		return true
 	}
-	if puzzle[index-width] == '.' {
+	if CellIsBlank(puzzle[index-width]) {
 		return true
 	}
 	return false
 }
 
 func startOfAcrossClue(puzzle string, width, index int) bool {
-	if puzzle[index] == '.' {
+	if CellIsBlank(puzzle[index]) {
 		return false
 	}
-	if (index+1)%width == 0 || puzzle[index+1] == '.' {
+	if (index+1)%width == 0 || CellIsBlank(puzzle[index+1]) {
 		return false
 	}
 	if index%width == 0 {
 		return true
 	}
-	if puzzle[index-1] == '.' {
+	if CellIsBlank(puzzle[index-1]) {
 		return true
 	}
 	return false
@@ -316,13 +316,13 @@ func ParsePuz(file []byte) (*Puzzle, error) {
 			}
 
 			if clue.Direction == DirectionAcross {
-				if ((currentCell+1)%puzzle.Width == 0) || puzzle.Solution[currentCell+1] == '.' {
+				if ((currentCell+1)%puzzle.Width == 0) || CellIsBlank(puzzle.Solution[currentCell+1]) {
 					break
 				} else {
 					currentCell++
 				}
 			} else if clue.Direction == DirectionDown {
-				if int(math.Floor(float64(currentCell/puzzle.Width)))+1 == puzzle.Height || puzzle.Solution[currentCell+puzzle.Width] == '.' {
+				if int(math.Floor(float64(currentCell/puzzle.Width)))+1 == puzzle.Height || CellIsBlank(puzzle.Solution[currentCell+puzzle.Width]) {
 					break
 				} else {
 					currentCell += puzzle.Width

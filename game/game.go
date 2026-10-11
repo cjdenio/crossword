@@ -371,10 +371,18 @@ func (state *State) RenderUI(w io.Writer, width int) int {
 		fmt.Fprint(w, AnsiDimmed("[c]: check puzzle/word | [r]: reveal puzzle/word | [x]: clear grid | [q]: exit menu\r\n"))
 		uiHeight += 1
 	case StateCheckMenu:
-		fmt.Fprint(w, AnsiDimmed("[w]: check word | [p]: check puzzle | [q]: exit menu\r\n"))
+		if state.SelectedClue != nil {
+			fmt.Fprint(w, AnsiDimmed("[w]: check word | [p]: check puzzle | [q]: exit menu\r\n"))
+		} else {
+			fmt.Fprint(w, AnsiDimmed("[p]: check puzzle | [q]: exit menu\r\n"))
+		}
 		uiHeight += 1
 	case StateRevealMenu:
-		fmt.Fprint(w, AnsiDimmed("[w]: reveal word | [p]: reveal puzzle | [q]: exit menu\r\n"))
+		if state.SelectedClue != nil {
+			fmt.Fprint(w, AnsiDimmed("[w]: reveal word | [p]: reveal puzzle | [q]: exit menu\r\n"))
+		} else {
+			fmt.Fprint(w, AnsiDimmed("[p]: reveal puzzle | [q]: exit menu\r\n"))
+		}
 		uiHeight += 1
 	}
 
@@ -437,12 +445,13 @@ func (state *State) RenderPuzzle() string {
 		}
 
 		cell := ""
-		switch char {
-		case '.':
+		if char == ':' || state.Puzzle.Solution[index] == ':' {
+			cell = " "
+		} else if char == '.' {
 			cell = string(rune(0x2588))
-		case '-':
+		} else if char == '-' {
 			cell = AnsiDimmed("_")
-		default:
+		} else {
 			cell = string(char)
 		}
 
@@ -465,7 +474,7 @@ func (state *State) RenderPuzzle() string {
 
 		if (index+1)%state.Puzzle.Width == 0 {
 			b.WriteString(" │\r\n")
-		} else if char == '.' && state.PuzzleState[index+1] == '.' {
+		} else if (char == '.' && state.Puzzle.Solution[index] != ':') && state.PuzzleState[index+1] == '.' {
 			b.WriteRune(0x2588)
 		} else {
 			// inefficient
@@ -509,7 +518,7 @@ func (state *State) LoadSaveFile(f []byte) error {
 	}
 
 	for i, cell := range state.Puzzle.Solution {
-		if (save.State[i] == '.' && cell != '.') || (save.State[i] != '.' && cell == '.') {
+		if (puz.CellIsBlank(save.State[i]) && !puz.CellIsBlank(byte(cell))) || (!puz.CellIsBlank(save.State[i]) && puz.CellIsBlank(byte(cell))) {
 			return errors.New("save is invalid")
 		}
 	}
@@ -580,7 +589,9 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 	case StateCheckMenu:
 		switch buffer[0] {
 		case 'w':
-			state.CheckWord(state.SelectedClue)
+			if state.SelectedClue != nil {
+				state.CheckWord(state.SelectedClue)
+			}
 		case 'p':
 			state.CheckPuzzle()
 		}
@@ -589,7 +600,9 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 	case StateRevealMenu:
 		switch buffer[0] {
 		case 'w':
-			state.RevealWord(state.SelectedClue)
+			if state.SelectedClue != nil {
+				state.RevealWord(state.SelectedClue)
+			}
 		case 'p':
 			state.RevealPuzzle()
 			return true
@@ -612,25 +625,27 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 		state.SwitchDirections()
 	}
 
-	if buffer[0] >= 0x61 && buffer[0] <= 0x7a {
+	if (buffer[0] >= 'a' && buffer[0] <= 'z') || (buffer[0] >= '0' && buffer[0] <= '9') {
 		cellWasFilled := state.PuzzleState[state.SelectedCell] != '-'
 		state.PuzzleState[state.SelectedCell] = unicode.ToUpper(rune(buffer[0]))
 		state.CheckState[state.SelectedCell] = 0x00
 
-		i := slices.Index(state.SelectedClue.Cells, state.SelectedCell)
+		if state.SelectedClue != nil {
+			i := slices.Index(state.SelectedClue.Cells, state.SelectedCell)
 
-		if !cellWasFilled {
-			// jump to next unfilled cell in clue
-			for x := (i + 1) % len(state.SelectedClue.Cells); x != i; x = ((x + 1) % len(state.SelectedClue.Cells)) {
-				if state.PuzzleState[state.SelectedClue.Cells[x]] == '-' {
-					state.SelectedCell = state.SelectedClue.Cells[x]
-					break
+			if !cellWasFilled {
+				// jump to next unfilled cell in clue
+				for x := (i + 1) % len(state.SelectedClue.Cells); x != i; x = ((x + 1) % len(state.SelectedClue.Cells)) {
+					if state.PuzzleState[state.SelectedClue.Cells[x]] == '-' {
+						state.SelectedCell = state.SelectedClue.Cells[x]
+						break
+					}
 				}
-			}
-		} else {
-			// jump to next cell
-			if i < len(state.SelectedClue.Cells)-1 {
-				state.SelectedCell = state.SelectedClue.Cells[i+1]
+			} else {
+				// jump to next cell
+				if i < len(state.SelectedClue.Cells)-1 {
+					state.SelectedCell = state.SelectedClue.Cells[i+1]
+				}
 			}
 		}
 
@@ -685,18 +700,21 @@ func (state *State) HandleInput(buffer []byte) (exited bool) {
 				state.MoveCursor(2)
 			}
 
-			switch state.SelectedClue.Direction {
-			case puz.DirectionAcross:
+			if (state.SelectedClue != nil && state.SelectedClue.Direction == puz.DirectionAcross) || state.SelectedClue == nil {
 				if state.Puzzle.Cells[state.SelectedCell][0] != nil {
 					state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
-				} else {
+				} else if state.Puzzle.Cells[state.SelectedCell][1] != nil {
 					state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
+				} else {
+					state.SelectedClue = nil
 				}
-			case puz.DirectionDown:
+			} else if state.SelectedClue != nil && state.SelectedClue.Direction == puz.DirectionDown {
 				if state.Puzzle.Cells[state.SelectedCell][1] != nil {
 					state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][1]
-				} else {
+				} else if state.Puzzle.Cells[state.SelectedCell][0] != nil {
 					state.SelectedClue = state.Puzzle.Cells[state.SelectedCell][0]
+				} else {
+					state.SelectedClue = nil
 				}
 			}
 		}

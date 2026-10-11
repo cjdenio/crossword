@@ -43,6 +43,10 @@ type Puzzle struct {
 	RebusCells map[int]string
 }
 
+func CellIsBlank(cell byte) bool {
+	return cell == ':' || cell == '.'
+}
+
 func LoadPuzzle(r io.Reader) (*Puzzle, error) {
 	bufReader := bufio.NewReader(r)
 	header, err := bufReader.Peek(16)
